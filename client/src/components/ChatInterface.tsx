@@ -324,7 +324,7 @@ export default function ChatInterface() {
         </div>
         <button 
           onClick={() => setIsSidebarCollapsed(true)} 
-          className="md:block hidden p-2.5 hover:bg-[var(--bg-card)] rounded-xl transition-all text-[var(--text-muted)]"
+          className="md:block hidden p-2.5 hover:bg-[var(--bg-card)] rounded-xl transition-all text-[var(--text-muted)] hover:text-[var(--text-main)]"
         >
           <Menu size={20} />
         </button>
@@ -393,7 +393,7 @@ export default function ChatInterface() {
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm md:hidden" onClick={() => setIsMobileMenuOpen(false)}>
           <aside className="w-72 h-full bg-[var(--bg-sidebar)]" onClick={e => e.stopPropagation()}>
             <SidebarContent />
-            <button onClick={() => setIsMobileMenuOpen(false)} className="absolute top-5 right-5 p-2 bg-[var(--bg-card)] rounded-xl border border-[var(--border)]"><X size={20}/></button>
+            <button onClick={() => setIsMobileMenuOpen(false)} className="absolute top-5 right-5 p-2 bg-[var(--bg-card)] rounded-xl border border-[var(--border)] shadow-xl"><X size={20}/></button>
           </aside>
         </div>
       )}
@@ -403,7 +403,7 @@ export default function ChatInterface() {
           <div className="flex items-center gap-4">
             <button 
               onClick={() => isSidebarCollapsed ? setIsSidebarCollapsed(false) : setIsMobileMenuOpen(true)} 
-              className="p-2.5 hover:bg-[var(--bg-card)] rounded-xl text-[var(--text-muted)] transition-all"
+              className={`p-2.5 hover:bg-[var(--bg-card)] rounded-xl text-[var(--text-muted)] transition-all ${!isSidebarCollapsed ? 'md:hidden' : ''}`}
             >
               <Menu size={20} />
             </button>
@@ -513,12 +513,7 @@ export default function ChatInterface() {
                       {isModelMenuOpen && (
                         <div className="absolute bottom-full left-0 mb-4 w-64 bg-[var(--bg-card)] border border-[var(--border)] rounded-3xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2 backdrop-blur-3xl p-2">
                           {MOD_OPTIONS.map(opt => (
-                            <button 
-                              key={opt.id} 
-                              type="button" 
-                              onClick={() => { setSelectedModel(opt.id); setIsModelMenuOpen(false); }} 
-                              className={`w-full px-5 py-4 text-left rounded-2xl transition-all hover:bg-[var(--bg-sidebar)] flex flex-col gap-1 ${selectedModel === opt.id ? 'bg-[var(--bg-sidebar)] border border-[var(--border)]' : ''}`}
-                            >
+                            <button key={opt.id} type="button" onClick={() => { setSelectedModel(opt.id); setIsModelMenuOpen(false); }} className={`w-full px-5 py-4 text-left rounded-2xl transition-all hover:bg-[var(--bg-sidebar)] flex flex-col gap-1 ${selectedModel === opt.id ? 'bg-[var(--bg-sidebar)] border border-[var(--border)]' : ''}`}>
                               <span className={`text-[13px] font-bold ${selectedModel === opt.id ? 'text-[var(--accent)]' : 'text-[var(--text-main)]'}`}>{opt.name}</span>
                               <span className="text-[10px] text-[var(--text-muted)] font-medium leading-none">{opt.desc}</span>
                             </button>
