@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import { 
-  Sparkles, Menu, Send, User, Bot, Sun, Moon, X, AlertCircle 
+  Sparkles, Menu, Send, User, Bot, Sun, Moon, X, AlertCircle, Activity 
 } from 'lucide-react';
 
 // Components
@@ -25,6 +25,7 @@ const VISUAL_MODES = [
   { id: 'auto', name: 'Auto Mode', icon: <Sparkles size={14} />, desc: 'AI decides best format' },
   { id: 'diagram', name: 'Architecture', icon: <Bot size={14} />, desc: 'Force React Flow Diagram' },
   { id: 'chart', name: 'Data Chart', icon: <Bot size={14} />, desc: 'Force Recharts Graph' },
+  { id: 'physics', name: 'Physics Lab', icon: <Activity size={14} />, desc: 'Force p5.js Simulation' },
 ];
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024;
@@ -106,6 +107,7 @@ export default function ChatInterface() {
     let processedInput = input;
     if (visualMode === 'diagram') processedInput += "\n[SYSTEM: Output a React Flow diagram JSON in a ```reactflow``` block]";
     if (visualMode === 'chart') processedInput += "\n[SYSTEM: Output a Recharts graph JSON in a ```recharts``` block]";
+    if (visualMode === 'physics') processedInput += "\n[SYSTEM: Output a comprehensive 'physics_lab' JSON in a ```physics``` block. Include expert explanation and interactive sliders]";
 
     const userMsg: Message = { role: 'user', content: input || "Analyzed attached files." };
     const promptMsg: Message = { ...userMsg, content: processedInput };

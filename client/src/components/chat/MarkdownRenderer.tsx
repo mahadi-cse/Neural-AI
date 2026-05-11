@@ -4,6 +4,7 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import { ReactFlowBlock } from '../visuals/ReactFlowBlock';
 import { ChartBlock } from '../visuals/ChartBlock';
+import { PhysicsBlock } from '../visuals/PhysicsBlock';
 import { CodeBlock } from './CodeBlock';
 
 const REACTFLOW_LANGUAGES = new Set(['reactflow', 'flow', 'diagram', 'json', 'javascript', 'js']);
@@ -35,6 +36,9 @@ export const MarkdownRenderer = ({ content, enableVisuals = true }: MarkdownRend
 
         const isChart = enableVisuals && !inline && (language === 'recharts' || normalizedLanguage === 'recharts');
         if (isChart) return <ChartBlock code={codeValue} />;
+
+        const isPhysics = enableVisuals && !inline && (language === 'p5' || normalizedLanguage === 'p5' || language === 'physics');
+        if (isPhysics) return <PhysicsBlock code={codeValue} />;
 
         return !inline && match ? (
           <CodeBlock language={match[1]} value={codeValue} />
