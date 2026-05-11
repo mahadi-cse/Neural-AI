@@ -21,6 +21,17 @@ const upload = multer({
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+const DIAGRAM_INSTRUCTION = [
+  "You are a helpful assistant.",
+  "If the user asks for a diagram (architecture, flowchart, sequence, class, ER, state, gantt, mindmap, timeline, or similar),",
+  "respond with a React Flow JSON graph in a fenced code block:\n```reactflow\n{\"nodes\":[...],\"edges\":[...]}\n```.",
+  "Each node must include id, position {x,y}, and data {label}.",
+  "Each edge must include id, source, and target.",
+  "Return strict JSON only: double quotes, no comments, no trailing commas, no extra keys.",
+  "Keep the response to the React Flow code block unless the user asks for an explanation.",
+  "If the user explicitly asks for ASCII art, provide ASCII instead."
+].join(' ');
+
 app.post('/api/chat', upload.array('files'), async (req, res) => {
   try {
     const { messages, model: requestedModel } = req.body;
@@ -37,7 +48,7 @@ app.post('/api/chat', upload.array('files'), async (req, res) => {
     const lastMessage = parsedMessages[parsedMessages.length - 1].content;
     
     // Prepare parts for multimodal input
-    const parts = [lastMessage];
+    const parts = [`${DIAGRAM_INSTRUCTION}\n\nUser request:\n${lastMessage}`];
 
     // Process files
     for (const file of files) {

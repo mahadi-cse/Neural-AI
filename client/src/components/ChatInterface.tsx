@@ -5,6 +5,10 @@ import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useTheme } from 'next-themes';
+import ReactFlow, { Background, Controls, MiniMap, MarkerType } from 'reactflow';
+import type { Edge, Node as ReactFlowNode, Viewport } from 'reactflow';
+import json5 from 'json5';
+import dagre from 'dagre';
 import { 
   Copy, Check, ChevronDown, Sparkles, 
   MessageSquare, Plus, Trash2, Menu, Send, User, 
@@ -42,6 +46,34 @@ const SUGGESTIONS = [
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
 
+const REACTFLOW_LANGUAGES = new Set(['reactflow', 'flow', 'diagram', 'json', 'javascript', 'js']);
+const REACTFLOW_LIKE = /("nodes"|nodes)\s*:\s*\[|("edges"|edges)\s*:\s*\[/;
+
+const isReactFlowLike = (code: string) => REACTFLOW_LIKE.test(code);
+
+type ReactFlowPayload = {
+  nodes: ReactFlowNode[];
+  edges: Edge[];
+  viewport?: Viewport;
+};
+
+const sanitizeReactFlowJson = (code: string) => {
+  const trimmed = code.trim();
+  const noLineComments = trimmed.replace(/\/\/.*$/gm, '');
+  const noBlockComments = noLineComments.replace(/\/\*[\s\S]*?\*\//g, '');
+  const noTrailingCommas = noBlockComments.replace(/,\s*([}\]])/g, '$1');
+  return noTrailingCommas;
+};
+
+const extractJsonCandidate = (code: string) => {
+  const start = code.indexOf('{');
+  const end = code.lastIndexOf('}');
+  if (start !== -1 && end > start) {
+    return code.slice(start, end + 1);
+  }
+  return code;
+};
+
 const CodeBlock = ({ language, value }: { language: string, value: string }) => {
   const [copied, setCopied] = useState(false);
   const copyToClipboard = () => {
@@ -66,6 +98,166 @@ const CodeBlock = ({ language, value }: { language: string, value: string }) => 
       >
         {value}
       </SyntaxHighlighter>
+    </div>
+  );
+};
+
+const normalizeReactFlowData = (payload: ReactFlowPayload): ReactFlowPayload => {
+  let nodes = payload.nodes || [];
+  let edges = payload.edges || [];
+
+  const dagreGraph = new dagre.graphlib.Graph();
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
+  dagreGraph.setGraph({ rankdir: 'TB', ranksep: 60, nodesep: 80 });
+
+  // Add colors and styling to nodes
+  const styledNodes = nodes.map(node => {
+    return {
+      ...node,
+      data: node.data || { label: node.id },
+      style: { 
+        ...node.style, 
+        background: 'var(--accent)', 
+        color: '#ffffff', 
+        border: 'none',
+        borderRadius: '12px',
+        padding: '12px 20px',
+        fontSize: '14px',
+        fontWeight: 'bold',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+      }
+    };
+  });
+
+  // Adding markers and colors to edges
+  const styledEdges = edges.map(edge => ({
+    ...edge,
+    type: 'smoothstep',
+    animated: true,
+    style: { stroke: 'var(--accent)', strokeWidth: 2, ...edge.style },
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      color: 'var(--accent)',
+    },
+  }));
+
+  // Dagre Layout
+  styledNodes.forEach(node => {
+    dagreGraph.setNode(node.id, { width: 160, height: 60 });
+  });
+
+  styledEdges.forEach(edge => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(dagreGraph);
+
+  const layedOutNodes = styledNodes.map(node => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    return {
+      ...node,
+      position: {
+        x: nodeWithPosition.x - 160 / 2,
+        y: nodeWithPosition.y - 60 / 2
+      }
+    };
+  });
+
+  return { ...payload, nodes: layedOutNodes, edges: styledEdges };
+};
+
+const parseReactFlowPayload = (code: string): ReactFlowPayload | null => {
+  const raw = extractJsonCandidate(code);
+  const sanitized = sanitizeReactFlowJson(raw);
+  const candidates = [sanitized];
+
+  if (!sanitized.trim().startsWith('{') && isReactFlowLike(sanitized)) {
+    candidates.push(`{${sanitized}}`);
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (!parsed || !Array.isArray(parsed.nodes)) {
+        continue;
+      }
+      return normalizeReactFlowData({
+        ...parsed,
+        edges: Array.isArray(parsed.edges) ? parsed.edges : []
+      });
+    } catch (err) {
+      try {
+        const parsed = json5.parse(candidate);
+        if (!parsed || !Array.isArray(parsed.nodes)) {
+          continue;
+        }
+        return normalizeReactFlowData({
+          ...parsed,
+          edges: Array.isArray(parsed.edges) ? parsed.edges : []
+        });
+      } catch (json5Err) {
+        continue;
+      }
+    }
+  }
+
+  return null;
+};
+
+const ReactFlowBlock = ({ code }: { code: string }) => {
+  const [payload, setPayload] = useState<ReactFlowPayload | null>(null);
+  const [renderError, setRenderError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const parsed = parseReactFlowPayload(code);
+    if (parsed) {
+      setRenderError(null);
+      setPayload(parsed);
+    } else {
+      setPayload(null);
+      setRenderError('Unable to render this React Flow diagram.');
+    }
+  }, [code]);
+
+  if (renderError) {
+    return (
+      <div className="my-6 space-y-3">
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-xs font-semibold text-red-500">
+          {renderError} Ensure the block is valid JSON with `nodes` and `edges`.
+        </div>
+        <CodeBlock language="reactflow" value={code} />
+      </div>
+    );
+  }
+
+  if (!payload) {
+    return (
+      <div className="reactflow-diagram my-6 text-xs font-semibold text-[var(--text-muted)]">
+        Rendering diagram...
+      </div>
+    );
+  }
+
+  return (
+    <div className="reactflow-diagram my-6 rounded-2xl border border-[var(--border)] overflow-hidden w-full min-w-[280px] sm:min-w-[400px] md:min-w-[550px]" style={{ height: '400px' }} role="img" aria-label="React Flow diagram">
+      <ReactFlow
+        nodes={payload.nodes}
+        edges={payload.edges}
+        fitView
+        fitViewOptions={{ padding: 0.2 }}
+        minZoom={0.2}
+        style={{ width: '100%', height: '100%', background: 'var(--bg-sidebar)' }}
+      >
+        <Background color="var(--accent)" gap={16} size={1} />
+        <MiniMap
+          zoomable
+          pannable
+          nodeColor={() => 'var(--accent)'}
+          maskColor="var(--bg-main)"
+          style={{ background: 'var(--bg-sidebar)' }}
+        />
+        <Controls showInteractive={false} />
+      </ReactFlow>
     </div>
   );
 };
@@ -127,7 +319,8 @@ export default function ChatInterface() {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (modelMenuRef.current && !modelMenuRef.current.contains(event.target as Node)) {
+      const target = event.target;
+      if (modelMenuRef.current && target instanceof Element && !modelMenuRef.current.contains(target)) {
         setIsModelMenuOpen(false);
       }
     };
@@ -293,25 +486,47 @@ export default function ChatInterface() {
     }
   };
 
-  const MarkdownRenderer = ({ content }: { content: string }) => (
-    <ReactMarkdown components={{
-      code({ node, inline, className, children, ...props }: any) {
-        const match = /language-(\w+)/.exec(className || '');
-        return !inline && match ? (
-          <CodeBlock language={match[1]} value={String(children).replace(/\n$/, '')} />
-        ) : (
-          <code className="bg-[var(--bg-sidebar)] px-1.5 py-0.5 rounded-lg text-[var(--accent)] text-sm font-mono font-bold" {...props}>
-            {children}
-          </code>
-        );
-      },
-      p: ({ children }) => <p className="mb-5 last:mb-0">{children}</p>,
-      ul: ({ children }) => <ul className="list-disc ml-6 mb-5 space-y-2">{children}</ul>,
-      ol: ({ children }) => <ol className="list-decimal ml-6 mb-5 space-y-2">{children}</ol>,
-    }}>
-      {content}
-    </ReactMarkdown>
-  );
+  const MarkdownRenderer = ({ content, enableReactFlow = true }: { content: string; enableReactFlow?: boolean }) => {
+    const trimmed = content.trim();
+    if (enableReactFlow && trimmed.startsWith('{') && trimmed.endsWith('}') && isReactFlowLike(trimmed)) {
+      const parsed = parseReactFlowPayload(trimmed);
+      if (parsed) {
+        return <ReactFlowBlock code={trimmed} />;
+      }
+    }
+
+    return (
+      <ReactMarkdown components={{
+        code({ node, inline, className, children, ...props }: any) {
+          const match = /language-([^\s]+)/.exec(className || '');
+          const language = match?.[1]?.toLowerCase() || '';
+          const normalizedLanguage = language.replace(/[^a-z0-9]/g, '');
+          const codeValue = String(children).replace(/\n$/, '');
+          const shouldRenderReactFlow =
+            enableReactFlow &&
+            !inline &&
+            (REACTFLOW_LANGUAGES.has(language) || REACTFLOW_LANGUAGES.has(normalizedLanguage) || isReactFlowLike(codeValue));
+
+          if (shouldRenderReactFlow) {
+            return <ReactFlowBlock code={codeValue} />;
+          }
+
+          return !inline && match ? (
+            <CodeBlock language={match[1]} value={codeValue} />
+          ) : (
+            <code className="bg-[var(--bg-sidebar)] px-1.5 py-0.5 rounded-lg text-[var(--accent)] text-sm font-mono font-bold" {...props}>
+              {children}
+            </code>
+          );
+        },
+        p: ({ children }) => <p className="mb-5 last:mb-0">{children}</p>,
+        ul: ({ children }) => <ul className="list-disc ml-6 mb-5 space-y-2">{children}</ul>,
+        ol: ({ children }) => <ol className="list-decimal ml-6 mb-5 space-y-2">{children}</ol>,
+      }}>
+        {content}
+      </ReactMarkdown>
+    );
+  };
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full overflow-hidden">
@@ -444,7 +659,7 @@ export default function ChatInterface() {
                   <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center shrink-0 shadow-lg ${msg.role === 'user' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-card)] border border-[var(--border)] text-[var(--accent)]'}`}>
                     {msg.role === 'user' ? <User size={18} /> : <Bot size={18} />}
                   </div>
-                  <div className={`px-5 py-4 rounded-2xl max-w-[92%] md:max-w-[85%] text-[15px] leading-relaxed shadow-soft ${msg.role === 'user' ? 'bg-[var(--accent)] text-white rounded-tr-none' : 'bg-[var(--bg-card)] border border-[var(--border)] rounded-tl-none'}`}>
+                  <div className={`px-5 py-4 rounded-2xl w-full max-w-[92%] md:max-w-[85%] text-[15px] leading-relaxed shadow-soft ${msg.role === 'user' ? 'bg-[var(--accent)] text-white rounded-tr-none flex-none w-auto' : 'bg-[var(--bg-card)] border border-[var(--border)] rounded-tl-none'}`}>
                     <div className="markdown-content"><MarkdownRenderer content={msg.content} /></div>
                   </div>
                 </div>
@@ -454,8 +669,8 @@ export default function ChatInterface() {
             {streamingMessage && (
               <div className="flex gap-3 md:gap-6 animate-in fade-in duration-300">
                 <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] flex items-center justify-center text-[var(--accent)] shadow-lg"><Bot size={18} /></div>
-                <div className="px-5 py-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] shadow-soft max-w-[92%] md:max-w-[85%] rounded-tl-none">
-                  <div className="markdown-content"><MarkdownRenderer content={streamingMessage} /></div>
+                <div className="px-5 py-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] shadow-soft w-full max-w-[92%] md:max-w-[85%] rounded-tl-none">
+                  <div className="markdown-content"><MarkdownRenderer content={streamingMessage} enableReactFlow={false} /></div>
                   <span className="inline-block w-1.5 h-5 ml-1 bg-[var(--accent)] animate-pulse rounded-full translate-y-1"></span>
                 </div>
               </div>

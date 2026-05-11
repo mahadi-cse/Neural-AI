@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "reactflow/dist/style.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -47,6 +48,24 @@ body {
 
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+.reactflow-diagram {
+  box-shadow: var(--shadow-soft);
+}
+
+.reactflow-diagram .react-flow__controls-button,
+.reactflow-diagram .react-flow__minimap {
+  box-shadow: none;
+  border: 1px solid var(--border);
+  background: var(--bg-main);
+  fill: var(--text-main);
+  color: var(--text-main);
+}
+
+.reactflow-diagram .react-flow__edge-path {
+  stroke: var(--text-muted);
+  stroke-width: 2;
+}
 
 /* Focus Reset */
 *:focus {
