@@ -8,7 +8,7 @@ import { useTheme } from 'next-themes';
 import { 
   Copy, Check, ChevronDown, Sparkles, 
   MessageSquare, Plus, Trash2, Menu, Send, User, 
-  Bot, Terminal, Mail, Bug, Sun, Moon, X, FileText, Image as ImageIcon, AlertCircle
+  Bot, Terminal, Mail, Bug, Sun, Moon, X, FileText, Image as ImageIcon, AlertCircle, Edit3
 } from 'lucide-react';
 
 interface Message {
@@ -31,6 +31,13 @@ interface FilePreview {
 const MOD_OPTIONS = [
   { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash', badge: 'Experimental' },
   { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', badge: 'Stable' },
+];
+
+const SUGGESTIONS = [
+  { icon: <Sparkles size={16} />, text: "Explain quantum computing simply" },
+  { icon: <Terminal size={16} />, text: "Write a Python web scraper" },
+  { icon: <Mail size={16} />, text: "Draft a professional email" },
+  { icon: <Bug size={16} />, text: "Debug my JavaScript code" },
 ];
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
@@ -68,6 +75,8 @@ export default function ChatInterface() {
     { id: '1', title: 'New Conversation', messages: [] }
   ]);
   const [activeChatId, setActiveChatId] = useState('1');
+  const [editingChatId, setEditingChatId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
@@ -136,13 +145,63 @@ export default function ChatInterface() {
     });
   };
 
+  const handleNewChat = () => {
+    const newChat: Chat = { id: Date.now().toString(), title: 'New Conversation', messages: [] };
+    setChats(prev => [newChat, ...prev]);
+    setActiveChatId(newChat.id);
+    setIsMobileMenuOpen(false);
+  };
+
+  const deleteChat = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setChats(prev => {
+      const filtered = prev.filter(c => c.id !== id);
+      if (filtered.length === 0) return [{ id: Date.now().toString(), title: 'New Conversation', messages: [] }];
+      if (activeChatId === id) setActiveChatId(filtered[0].id);
+      return filtered;
+    });
+  };
+
+  const startEditing = (chat: Chat, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingChatId(chat.id);
+    setEditingTitle(chat.title);
+  };
+
+  const saveTitle = () => {
+    if (editingChatId && editingTitle.trim()) {
+      setChats(prev => prev.map(c => c.id === editingChatId ? { ...c, title: editingTitle } : c));
+    }
+    setEditingChatId(null);
+  };
+
+  const handleSuggestion = (text: string) => {
+    setInput(text);
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+      // Use a timeout to ensure state update has propagated to the DOM
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.style.height = 'auto';
+          textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+        }
+      }, 0);
+    }
+  };
+
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if ((!input.trim() && selectedFiles.length === 0) || isLoading) return;
 
     const userMessage: Message = { role: 'user', content: input || "Analyzed attached files." };
     
-    setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: [...c.messages, userMessage] } : c));
+    // Auto-update title on first message
+    let newTitle = activeChat.title;
+    if (activeChat.messages.length === 0 && input.trim()) {
+      newTitle = input.slice(0, 30) + (input.length > 30 ? '...' : '');
+    }
+
+    setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, title: newTitle, messages: [...c.messages, userMessage] } : c));
     
     const formData = new FormData();
     formData.append('messages', JSON.stringify([...activeChat.messages, userMessage]));
@@ -212,36 +271,69 @@ export default function ChatInterface() {
   );
 
   const SidebarContent = () => (
-    <div className="flex flex-col h-full">
-      <div className="p-5 border-b border-[var(--border)] flex items-center justify-between">
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="p-5 border-b border-[var(--border)] flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#3b82f6] to-[#8b5cf6] flex items-center justify-center shadow-lg">
             <Sparkles size={16} className="text-white" />
           </div>
           <span className="font-bold text-lg tracking-tight whitespace-nowrap">Neural AI</span>
         </div>
-        <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="md:block hidden p-2.5 hover:bg-[var(--bg-card)] rounded-xl transition-all text-[var(--text-muted)]">
+        <button 
+          onClick={() => setIsSidebarCollapsed(true)} 
+          className="md:block hidden p-2.5 hover:bg-[var(--bg-card)] rounded-xl transition-all text-[var(--text-muted)]"
+        >
           <Menu size={20} />
         </button>
       </div>
 
-      <div className="p-5">
-        <button onClick={() => {
-          const newChat: Chat = { id: Date.now().toString(), title: 'New Conversation', messages: [] };
-          setChats(prev => [newChat, ...prev]);
-          setActiveChatId(newChat.id);
-          setIsMobileMenuOpen(false);
-        }} className="flex items-center gap-2.5 w-full py-3 px-5 rounded-2xl bg-[var(--accent)] text-white font-semibold transition-all shadow-xl shadow-blue-500/10">
+      <div className="p-5 shrink-0">
+        <button 
+          onClick={handleNewChat} 
+          className="flex items-center gap-2.5 w-full py-3 px-5 rounded-2xl bg-[var(--accent)] text-white font-semibold transition-all shadow-xl shadow-blue-500/10 hover:scale-[1.02] active:scale-95"
+        >
           <Plus size={20} />
           <span>New Chat</span>
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-3 space-y-1.5 scrollbar-hide">
+      <div className="flex-1 overflow-y-auto px-3 space-y-1.5 scrollbar-hide pb-20">
         {chats.map(chat => (
-          <div key={chat.id} onClick={() => { setActiveChatId(chat.id); setIsMobileMenuOpen(false); }} className={`group flex items-center gap-3.5 p-3.5 rounded-2xl cursor-pointer transition-all ${activeChatId === chat.id ? 'bg-[var(--bg-card)] shadow-soft' : 'hover:bg-[var(--bg-card)]/40 text-[var(--text-muted)]'}`}>
+          <div 
+            key={chat.id} 
+            onClick={() => { setActiveChatId(chat.id); setIsMobileMenuOpen(false); }} 
+            className={`group flex items-center gap-3.5 p-3.5 rounded-2xl cursor-pointer transition-all ${activeChatId === chat.id ? 'bg-[var(--bg-card)] shadow-soft text-[var(--text-main)]' : 'hover:bg-[var(--bg-card)]/40 text-[var(--text-muted)]'}`}
+          >
             <MessageSquare size={16} className={activeChatId === chat.id ? 'text-[var(--accent)]' : ''} />
-            <div className="flex-1 truncate text-[13.5px] font-medium">{chat.title}</div>
+            <div className="flex-1 truncate text-[13.5px] font-medium">
+              {editingChatId === chat.id ? (
+                <input
+                  autoFocus
+                  value={editingTitle}
+                  onChange={(e) => setEditingTitle(e.target.value)}
+                  onBlur={saveTitle}
+                  onKeyDown={(e) => e.key === 'Enter' && saveTitle()}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full bg-transparent border-none outline-none text-[var(--accent)] font-bold p-0"
+                />
+              ) : (
+                <span>{chat.title}</span>
+              )}
+            </div>
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+              <button 
+                onClick={(e) => startEditing(chat, e)}
+                className="p-1.5 hover:bg-[var(--bg-sidebar)] rounded-lg transition-all text-[var(--text-muted)] hover:text-[var(--text-main)]"
+              >
+                <Edit3 size={14} />
+              </button>
+              <button 
+                onClick={(e) => deleteChat(chat.id, e)}
+                className="p-1.5 hover:bg-red-500/10 text-red-500 rounded-lg transition-all"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
           </div>
         ))}
       </div>
@@ -250,41 +342,80 @@ export default function ChatInterface() {
 
   return (
     <div className="flex h-screen w-full bg-[var(--bg-main)] text-[var(--text-main)] overflow-hidden font-sans transition-all duration-700">
-      <aside className={`hidden md:flex flex-col bg-[var(--bg-sidebar)] border-r border-[var(--border)] transition-all duration-500 ${isSidebarCollapsed ? 'w-0 border-none opacity-0' : 'w-72'}`}>
+      {/* Desktop Sidebar */}
+      <aside className={`hidden md:flex flex-col bg-[var(--bg-sidebar)] border-r border-[var(--border)] transition-all duration-500 ease-in-out ${isSidebarCollapsed ? 'w-0 border-none opacity-0' : 'w-72'}`}>
         <SidebarContent />
       </aside>
 
+      {/* Mobile Sidebar Overlay */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm md:hidden" onClick={() => setIsMobileMenuOpen(false)}>
-          <aside className="w-72 h-full bg-[var(--bg-sidebar)]" onClick={e => e.stopPropagation()}><SidebarContent /></aside>
+          <aside className="w-72 h-full bg-[var(--bg-sidebar)]" onClick={e => e.stopPropagation()}>
+            <SidebarContent />
+            <button onClick={() => setIsMobileMenuOpen(false)} className="absolute top-5 right-5 p-2 bg-[var(--bg-card)] rounded-xl border border-[var(--border)]"><X size={20}/></button>
+          </aside>
         </div>
       )}
 
       <div className="flex-1 flex flex-col relative overflow-hidden">
-        <header className="h-16 md:h-20 flex items-center justify-between px-4 md:px-10 border-b border-[var(--border)] bg-[var(--bg-header)] backdrop-blur-xl z-10">
+        {/* Header */}
+        <header className="h-16 md:h-20 flex items-center justify-between px-4 md:px-10 border-b border-[var(--border)] bg-[var(--bg-header)] backdrop-blur-xl z-10 shrink-0">
           <div className="flex items-center gap-4">
-            <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 text-[var(--text-muted)]"><Menu size={20} /></button>
-            <div className="text-sm md:text-base font-bold">Neural AI</div>
+            <button 
+              onClick={() => isSidebarCollapsed ? setIsSidebarCollapsed(false) : setIsMobileMenuOpen(true)} 
+              className="p-2.5 hover:bg-[var(--bg-card)] rounded-xl text-[var(--text-muted)] transition-all"
+            >
+              <Menu size={20} />
+            </button>
+            <div className="flex flex-col">
+              <div className="text-sm md:text-base font-bold leading-none mb-1">Neural AI</div>
+              <div className="text-[10px] uppercase tracking-widest text-[var(--text-muted)] opacity-50 font-bold hidden md:block">Conversation</div>
+            </div>
           </div>
-          <button onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')} className="p-2.5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] shadow-soft">
+          <button onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')} className="p-2.5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] shadow-soft hover:scale-110 active:scale-95 transition-all">
             {resolvedTheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
         </header>
 
+        {/* Chat Canvas */}
         <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 scroll-smooth">
           <div className="max-w-6xl mx-auto space-y-10 pb-12">
-            {activeChat.messages.map((msg, index) => (
-              <div key={index} className={`flex gap-3 md:gap-6 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'} animate-in fade-in slide-in-from-bottom-4 duration-500`}>
-                <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center shrink-0 shadow-lg ${msg.role === 'user' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-card)] border border-[var(--border)] text-[var(--accent)]'}`}>
-                  {msg.role === 'user' ? <User size={18} /> : <Bot size={18} />}
+            {activeChat.messages.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center py-10 md:py-20 animate-in fade-in zoom-in-95 duration-1000">
+                <div className="w-20 h-20 rounded-[2.5rem] bg-gradient-to-br from-[#3b82f6] to-[#7c3aed] flex items-center justify-center shadow-2xl mb-8">
+                  <Bot size={40} className="text-white" />
                 </div>
-                <div className={`px-5 py-4 rounded-2xl max-w-[92%] md:max-w-[85%] text-[15px] leading-relaxed shadow-soft ${msg.role === 'user' ? 'bg-[var(--accent)] text-white rounded-tr-none' : 'bg-[var(--bg-card)] border border-[var(--border)] rounded-tl-none'}`}>
-                  <div className="markdown-content">
-                    <MarkdownRenderer content={msg.content} />
-                  </div>
+                <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-4">How can I help today?</h2>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl px-4">
+                  {SUGGESTIONS.map((s, i) => (
+                    <button 
+                      key={i} 
+                      onClick={() => handleSuggestion(s.text)}
+                      className="flex flex-col gap-2 p-5 rounded-3xl bg-[var(--bg-card)] border border-[var(--border)] hover:bg-[var(--bg-sidebar)] hover:scale-[1.02] active:scale-95 transition-all text-left group shadow-soft"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-[var(--bg-sidebar)] flex items-center justify-center text-[var(--accent)] group-hover:bg-[var(--accent)] group-hover:text-white transition-all">
+                        {s.icon}
+                      </div>
+                      <span className="text-sm font-semibold text-[var(--text-main)]">{s.text}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
-            ))}
+            ) : (
+              activeChat.messages.map((msg, index) => (
+                <div key={index} className={`flex gap-3 md:gap-6 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'} animate-in fade-in slide-in-from-bottom-4 duration-500`}>
+                  <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center shrink-0 shadow-lg ${msg.role === 'user' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-card)] border border-[var(--border)] text-[var(--accent)]'}`}>
+                    {msg.role === 'user' ? <User size={18} /> : <Bot size={18} />}
+                  </div>
+                  <div className={`px-5 py-4 rounded-2xl max-w-[92%] md:max-w-[85%] text-[15px] leading-relaxed shadow-soft ${msg.role === 'user' ? 'bg-[var(--accent)] text-white rounded-tr-none' : 'bg-[var(--bg-card)] border border-[var(--border)] rounded-tl-none'}`}>
+                    <div className="markdown-content">
+                      <MarkdownRenderer content={msg.content} />
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
             
             {streamingMessage && (
               <div className="flex gap-3 md:gap-6 animate-in fade-in duration-300">
@@ -316,11 +447,11 @@ export default function ChatInterface() {
           </div>
         </div>
 
-        <div className="px-4 md:px-10 pb-4 md:pb-10 pt-4 bg-gradient-to-t from-[var(--bg-main)]">
+        {/* Input Dock */}
+        <div className="px-4 md:px-10 pb-4 md:pb-10 pt-4 bg-gradient-to-t from-[var(--bg-main)] shrink-0">
           <form onSubmit={handleSubmit} className="max-w-6xl mx-auto space-y-4">
             {error && <div className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-500 rounded-xl text-xs font-bold animate-in fade-in slide-in-from-bottom-2"><AlertCircle size={14} />{error}</div>}
             
-            {/* File Tray */}
             {selectedFiles.length > 0 && (
               <div className="flex flex-wrap gap-3 animate-in fade-in slide-in-from-bottom-4">
                 {selectedFiles.map((file, i) => (
@@ -345,7 +476,7 @@ export default function ChatInterface() {
                       {isModelMenuOpen && <div className="absolute bottom-full left-0 mb-4 w-48 bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2">{MOD_OPTIONS.map(opt => <button key={opt.id} type="button" onClick={() => { setSelectedModel(opt.id); setIsModelMenuOpen(false); }} className="w-full px-5 py-4 text-left text-xs hover:bg-[var(--bg-sidebar)] transition-all">{opt.name}</button>)}</div>}
                     </div>
                   </div>
-                  <button type="submit" disabled={isLoading || (!input.trim() && selectedFiles.length === 0)} className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${input.trim() || selectedFiles.length > 0 ? 'bg-[var(--accent)] text-white shadow-lg' : 'bg-[var(--bg-sidebar)]/50 opacity-40'}`}><Send size={20} /></button>
+                  <button type="submit" disabled={isLoading || (!input.trim() && selectedFiles.length === 0)} className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${input.trim() || selectedFiles.length > 0 ? 'bg-[var(--accent)] text-white shadow-lg shadow-blue-500/20' : 'bg-[var(--bg-sidebar)]/50 opacity-40'}`}><Send size={20} /></button>
                 </div>
               </div>
             </div>
