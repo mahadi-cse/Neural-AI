@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --bg-main: #fcfdfe;
+  --bg-sidebar: #f1f5f9;
+  --bg-card: rgba(255, 255, 255, 0.7);
+  --bg-header: rgba(252, 253, 254, 0.8);
+  --border: rgba(0, 0, 0, 0.04);
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --accent: #3b82f6;
+  --shadow-soft: 0 4px 24px -1px rgba(0, 0, 0, 0.03), 0 2px 8px -1px rgba(0, 0, 0, 0.02);
+}
+
+.dark {
+  --bg-main: #0a0e17;
+  --bg-sidebar: #0d111a;
+  --bg-card: rgba(30, 41, 59, 0.4);
+  --bg-header: rgba(10, 14, 23, 0.8);
+  --border: rgba(255, 255, 255, 0.06);
+  --text-main: #cbd5e1;
+  --text-muted: #64748b;
+  --accent: #60a5fa;
+  --shadow-soft: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+}
+
+body {
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  transition: background-color 0.5s ease, color 0.5s ease;
+  @apply font-sans h-screen flex flex-col antialiased;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 10px;
+}
+
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Focus Reset */
+*:focus {
+  outline: none !important;
+}
