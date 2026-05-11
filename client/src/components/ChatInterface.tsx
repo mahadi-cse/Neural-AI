@@ -8,7 +8,7 @@ import { useTheme } from 'next-themes';
 import { 
   Copy, Check, ChevronDown, Sparkles, 
   MessageSquare, Plus, Trash2, Menu, Send, User, 
-  Bot, Terminal, Mail, Bug, Sun, Moon, X, FileText, Image as ImageIcon, AlertCircle, Edit3
+  Bot, Terminal, Mail, Bug, Sun, Moon, X, FileText, Image as ImageIcon, AlertCircle, Edit3, Mic, MicOff
 } from 'lucide-react';
 
 interface Message {
@@ -29,8 +29,8 @@ interface FilePreview {
 }
 
 const MOD_OPTIONS = [
-  { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash', badge: 'Experimental' },
-  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', badge: 'Stable' },
+  { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash', desc: 'Fast & Experimental' },
+  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', desc: 'Robust & Stable' },
 ];
 
 const SUGGESTIONS = [
@@ -86,6 +86,7 @@ export default function ChatInterface() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<FilePreview[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isListening, setIsListening] = useState(false);
   const [mounted, setMounted] = useState(false);
   
   const { setTheme, resolvedTheme } = useTheme();
@@ -93,18 +94,62 @@ export default function ChatInterface() {
   const modelMenuRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   const activeChat = chats.find(c => c.id === activeChatId) || chats[0];
 
   useEffect(() => {
     setMounted(true);
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = true;
+        recognitionRef.current.interimResults = true;
+
+        recognitionRef.current.onresult = (event: any) => {
+          const transcript = Array.from(event.results)
+            .map((result: any) => result[0])
+            .map((result: any) => result.transcript)
+            .join('');
+          setInput(transcript);
+        };
+
+        recognitionRef.current.onend = () => setIsListening(false);
+        recognitionRef.current.onerror = () => setIsListening(false);
+      }
+    }
   }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [activeChat.messages, streamingMessage]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (modelMenuRef.current && !modelMenuRef.current.contains(event.target as Node)) {
+        setIsModelMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   if (!mounted) return null;
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) {
+      setError("Speech recognition is not supported in this browser.");
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current.stop();
+    } else {
+      setIsListening(true);
+      recognitionRef.current.start();
+    }
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -179,7 +224,6 @@ export default function ChatInterface() {
     setInput(text);
     if (textareaRef.current) {
       textareaRef.current.focus();
-      // Use a timeout to ensure state update has propagated to the DOM
       setTimeout(() => {
         if (textareaRef.current) {
           textareaRef.current.style.height = 'auto';
@@ -195,7 +239,6 @@ export default function ChatInterface() {
 
     const userMessage: Message = { role: 'user', content: input || "Analyzed attached files." };
     
-    // Auto-update title on first message
     let newTitle = activeChat.title;
     if (activeChat.messages.length === 0 && input.trim()) {
       newTitle = input.slice(0, 30) + (input.length > 30 ? '...' : '');
@@ -342,12 +385,10 @@ export default function ChatInterface() {
 
   return (
     <div className="flex h-screen w-full bg-[var(--bg-main)] text-[var(--text-main)] overflow-hidden font-sans transition-all duration-700">
-      {/* Desktop Sidebar */}
       <aside className={`hidden md:flex flex-col bg-[var(--bg-sidebar)] border-r border-[var(--border)] transition-all duration-500 ease-in-out ${isSidebarCollapsed ? 'w-0 border-none opacity-0' : 'w-72'}`}>
         <SidebarContent />
       </aside>
 
-      {/* Mobile Sidebar Overlay */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm md:hidden" onClick={() => setIsMobileMenuOpen(false)}>
           <aside className="w-72 h-full bg-[var(--bg-sidebar)]" onClick={e => e.stopPropagation()}>
@@ -358,7 +399,6 @@ export default function ChatInterface() {
       )}
 
       <div className="flex-1 flex flex-col relative overflow-hidden">
-        {/* Header */}
         <header className="h-16 md:h-20 flex items-center justify-between px-4 md:px-10 border-b border-[var(--border)] bg-[var(--bg-header)] backdrop-blur-xl z-10 shrink-0">
           <div className="flex items-center gap-4">
             <button 
@@ -377,7 +417,6 @@ export default function ChatInterface() {
           </button>
         </header>
 
-        {/* Chat Canvas */}
         <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 scroll-smooth">
           <div className="max-w-6xl mx-auto space-y-10 pb-12">
             {activeChat.messages.length === 0 ? (
@@ -386,7 +425,6 @@ export default function ChatInterface() {
                   <Bot size={40} className="text-white" />
                 </div>
                 <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-4">How can I help today?</h2>
-                
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl px-4">
                   {SUGGESTIONS.map((s, i) => (
                     <button 
@@ -394,9 +432,7 @@ export default function ChatInterface() {
                       onClick={() => handleSuggestion(s.text)}
                       className="flex flex-col gap-2 p-5 rounded-3xl bg-[var(--bg-card)] border border-[var(--border)] hover:bg-[var(--bg-sidebar)] hover:scale-[1.02] active:scale-95 transition-all text-left group shadow-soft"
                     >
-                      <div className="w-8 h-8 rounded-xl bg-[var(--bg-sidebar)] flex items-center justify-center text-[var(--accent)] group-hover:bg-[var(--accent)] group-hover:text-white transition-all">
-                        {s.icon}
-                      </div>
+                      <div className="w-8 h-8 rounded-xl bg-[var(--bg-sidebar)] flex items-center justify-center text-[var(--accent)] group-hover:bg-[var(--accent)] group-hover:text-white transition-all">{s.icon}</div>
                       <span className="text-sm font-semibold text-[var(--text-main)]">{s.text}</span>
                     </button>
                   ))}
@@ -409,9 +445,7 @@ export default function ChatInterface() {
                     {msg.role === 'user' ? <User size={18} /> : <Bot size={18} />}
                   </div>
                   <div className={`px-5 py-4 rounded-2xl max-w-[92%] md:max-w-[85%] text-[15px] leading-relaxed shadow-soft ${msg.role === 'user' ? 'bg-[var(--accent)] text-white rounded-tr-none' : 'bg-[var(--bg-card)] border border-[var(--border)] rounded-tl-none'}`}>
-                    <div className="markdown-content">
-                      <MarkdownRenderer content={msg.content} />
-                    </div>
+                    <div className="markdown-content"><MarkdownRenderer content={msg.content} /></div>
                   </div>
                 </div>
               ))
@@ -419,13 +453,9 @@ export default function ChatInterface() {
             
             {streamingMessage && (
               <div className="flex gap-3 md:gap-6 animate-in fade-in duration-300">
-                <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] flex items-center justify-center text-[var(--accent)] shadow-lg">
-                  <Bot size={18} />
-                </div>
+                <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] flex items-center justify-center text-[var(--accent)] shadow-lg"><Bot size={18} /></div>
                 <div className="px-5 py-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] shadow-soft max-w-[92%] md:max-w-[85%] rounded-tl-none">
-                  <div className="markdown-content">
-                    <MarkdownRenderer content={streamingMessage} />
-                  </div>
+                  <div className="markdown-content"><MarkdownRenderer content={streamingMessage} /></div>
                   <span className="inline-block w-1.5 h-5 ml-1 bg-[var(--accent)] animate-pulse rounded-full translate-y-1"></span>
                 </div>
               </div>
@@ -433,9 +463,7 @@ export default function ChatInterface() {
 
             {isLoading && !streamingMessage && (
               <div className="flex gap-3 md:gap-6 animate-in fade-in duration-300">
-                <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] flex items-center justify-center text-[var(--accent)] shadow-lg">
-                  <Bot size={18} />
-                </div>
+                <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] flex items-center justify-center text-[var(--accent)] shadow-lg"><Bot size={18} /></div>
                 <div className="px-6 py-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] shadow-soft flex gap-1.5 items-center rounded-tl-none">
                   <div className="w-1.5 h-1.5 bg-[var(--accent)] rounded-full animate-bounce [animation-delay:-0.3s]"></div>
                   <div className="w-1.5 h-1.5 bg-[var(--accent)] rounded-full animate-bounce [animation-delay:-0.15s]"></div>
@@ -447,7 +475,6 @@ export default function ChatInterface() {
           </div>
         </div>
 
-        {/* Input Dock */}
         <div className="px-4 md:px-10 pb-4 md:pb-10 pt-4 bg-gradient-to-t from-[var(--bg-main)] shrink-0">
           <form onSubmit={handleSubmit} className="max-w-6xl mx-auto space-y-4">
             {error && <div className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-500 rounded-xl text-xs font-bold animate-in fade-in slide-in-from-bottom-2"><AlertCircle size={14} />{error}</div>}
@@ -471,9 +498,33 @@ export default function ChatInterface() {
                   <div className="flex items-center gap-2">
                     <input type="file" ref={fileInputRef} onChange={handleFileSelect} multiple className="hidden" accept="image/*,application/pdf,text/plain" />
                     <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2.5 rounded-xl bg-[var(--bg-sidebar)]/50 hover:bg-[var(--bg-sidebar)] transition-all shadow-sm"><Plus size={20} /></button>
-                    <div className="md:relative">
-                      <button type="button" onClick={() => setIsModelMenuOpen(!isModelMenuOpen)} className="px-3 py-1.5 hover:bg-[var(--bg-sidebar)] rounded-xl text-[10px] font-bold transition-all text-[var(--text-muted)] hover:text-[var(--text-main)]">{MOD_OPTIONS.find(m => m.id === selectedModel)?.name} <ChevronDown size={12} className="inline ml-1"/></button>
-                      {isModelMenuOpen && <div className="absolute bottom-full left-0 mb-4 w-48 bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2">{MOD_OPTIONS.map(opt => <button key={opt.id} type="button" onClick={() => { setSelectedModel(opt.id); setIsModelMenuOpen(false); }} className="w-full px-5 py-4 text-left text-xs hover:bg-[var(--bg-sidebar)] transition-all">{opt.name}</button>)}</div>}
+                    
+                    <button 
+                      type="button" 
+                      onClick={toggleListening} 
+                      className={`relative p-2.5 rounded-xl transition-all shadow-sm ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-[var(--bg-sidebar)]/50 hover:bg-[var(--bg-sidebar)]'}`}
+                    >
+                      <Mic size={20} />
+                      {isListening && <span className="absolute -top-1 -right-1 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span>}
+                    </button>
+
+                    <div className="md:relative" ref={modelMenuRef}>
+                      <button type="button" onClick={() => setIsModelMenuOpen(!isModelMenuOpen)} className="px-4 py-2 hover:bg-[var(--bg-sidebar)] rounded-xl text-xs font-bold transition-all text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--border)] bg-[var(--bg-sidebar)]/30">{MOD_OPTIONS.find(m => m.id === selectedModel)?.name} <ChevronDown size={14} className="inline ml-1"/></button>
+                      {isModelMenuOpen && (
+                        <div className="absolute bottom-full left-0 mb-4 w-64 bg-[var(--bg-card)] border border-[var(--border)] rounded-3xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2 backdrop-blur-3xl p-2">
+                          {MOD_OPTIONS.map(opt => (
+                            <button 
+                              key={opt.id} 
+                              type="button" 
+                              onClick={() => { setSelectedModel(opt.id); setIsModelMenuOpen(false); }} 
+                              className={`w-full px-5 py-4 text-left rounded-2xl transition-all hover:bg-[var(--bg-sidebar)] flex flex-col gap-1 ${selectedModel === opt.id ? 'bg-[var(--bg-sidebar)] border border-[var(--border)]' : ''}`}
+                            >
+                              <span className={`text-[13px] font-bold ${selectedModel === opt.id ? 'text-[var(--accent)]' : 'text-[var(--text-main)]'}`}>{opt.name}</span>
+                              <span className="text-[10px] text-[var(--text-muted)] font-medium leading-none">{opt.desc}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <button type="submit" disabled={isLoading || (!input.trim() && selectedFiles.length === 0)} className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${input.trim() || selectedFiles.length > 0 ? 'bg-[var(--accent)] text-white shadow-lg shadow-blue-500/20' : 'bg-[var(--bg-sidebar)]/50 opacity-40'}`}><Send size={20} /></button>
