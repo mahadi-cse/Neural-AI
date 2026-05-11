@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import { ReactFlowBlock } from '../visuals/ReactFlowBlock';
 import { ChartBlock } from '../visuals/ChartBlock';
 import { PhysicsBlock } from '../visuals/PhysicsBlock';
+import { ThreeBlock } from '../visuals/ThreeBlock';
 import { CodeBlock } from './CodeBlock';
 
 const REACTFLOW_LANGUAGES = new Set(['reactflow', 'flow', 'diagram', 'json', 'javascript', 'js']);
@@ -39,6 +40,9 @@ export const MarkdownRenderer = ({ content, enableVisuals = true }: MarkdownRend
 
         const isPhysics = enableVisuals && !inline && (language === 'p5' || normalizedLanguage === 'p5' || language === 'physics');
         if (isPhysics) return <PhysicsBlock code={codeValue} />;
+
+        const is3D = enableVisuals && !inline && (language === 'three' || normalizedLanguage === 'three' || language === '3d');
+        if (is3D) return <ThreeBlock code={codeValue} />;
 
         return !inline && match ? (
           <CodeBlock language={match[1]} value={codeValue} />

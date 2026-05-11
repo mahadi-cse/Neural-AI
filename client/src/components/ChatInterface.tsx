@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import { 
-  Sparkles, Menu, Send, User, Bot, Sun, Moon, X, AlertCircle, Activity 
+  Sparkles, Menu, Send, User, Bot, Sun, Moon, X, AlertCircle, Activity, Box 
 } from 'lucide-react';
 
 // Components
@@ -26,6 +26,7 @@ const VISUAL_MODES = [
   { id: 'diagram', name: 'Architecture', icon: <Bot size={14} />, desc: 'Force React Flow Diagram' },
   { id: 'chart', name: 'Data Chart', icon: <Bot size={14} />, desc: 'Force Recharts Graph' },
   { id: 'physics', name: 'Physics Lab', icon: <Activity size={14} />, desc: 'Force p5.js Simulation' },
+  { id: '3d', name: '3D Studio', icon: <Box size={14} />, desc: 'Force Three.js 3D Scene' },
 ];
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024;
@@ -108,6 +109,7 @@ export default function ChatInterface() {
     if (visualMode === 'diagram') processedInput += "\n[SYSTEM: Output a React Flow diagram JSON in a ```reactflow``` block]";
     if (visualMode === 'chart') processedInput += "\n[SYSTEM: Output a Recharts graph JSON in a ```recharts``` block]";
     if (visualMode === 'physics') processedInput += "\n[SYSTEM: Output a comprehensive 'physics_lab' JSON in a ```physics``` block. Include expert explanation and interactive sliders]";
+    if (visualMode === '3d') processedInput += "\n[SYSTEM: Output a '3d_studio' JSON in a ```three``` block. Include explanation, controls, and sketch. Sketch must define geometry/lighting and return { update: (c) => { ... } }]";
 
     const userMsg: Message = { role: 'user', content: input || "Analyzed attached files." };
     const promptMsg: Message = { ...userMsg, content: processedInput };
