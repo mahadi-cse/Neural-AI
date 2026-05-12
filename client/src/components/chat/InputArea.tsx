@@ -30,7 +30,7 @@ interface InputAreaProps {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
 }
 
-export const InputArea = ({
+export const InputArea = React.memo(({
   input, isLoading, isListening, selectedFiles, error,
   selectedModel, visualMode, isModelMenuOpen, isVisualMenuOpen,
   modelOptions, visualModes, onInputChange, onSubmit, onToggleListening,
@@ -119,4 +119,6 @@ export const InputArea = ({
       </form>
     </div>
   );
-};
+});
+
+InputArea.displayName = 'InputArea';

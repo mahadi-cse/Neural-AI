@@ -21,7 +21,7 @@ interface SidebarProps {
   onCloseMobile?: () => void;
 }
 
-export const Sidebar = ({ 
+export const Sidebar = React.memo(({ 
   chats, activeChatId, editingChatId, editingTitle, isSidebarCollapsed,
   onNewChat, onSelectChat, onDeleteChat, onStartEditing, onSaveTitle, 
   onSetEditingTitle, onSetIsSidebarCollapsed, onCloseMobile 
@@ -95,4 +95,6 @@ export const Sidebar = ({
       </div>
     </div>
   );
-};
+});
+
+Sidebar.displayName = 'Sidebar';
