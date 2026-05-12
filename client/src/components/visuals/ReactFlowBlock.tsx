@@ -10,7 +10,7 @@ import 'reactflow/dist/style.css';
 import type { Edge, Node as ReactFlowNode, Viewport } from 'reactflow';
 import json5 from 'json5';
 import dagre from 'dagre';
-import { Maximize2 } from 'lucide-react';
+import { Maximize2, RotateCcw } from 'lucide-react';
 
 const REACTFLOW_LIKE = /("nodes"|nodes)\s*:\s*\[|("edges"|edges)\s*:\s*\[/;
 const isReactFlowLike = (code: string) => REACTFLOW_LIKE.test(code);
@@ -74,7 +74,7 @@ const normalizeReactFlowData = (payload: ReactFlowPayload): ReactFlowPayload => 
         letterSpacing: '0.05em',
         boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
         width: 180,
-        textAlign: 'center'
+        textAlign: 'center' as any
       }
     };
   });
