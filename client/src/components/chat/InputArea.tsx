@@ -13,10 +13,13 @@ interface InputAreaProps {
   error: string | null;
   selectedModel: string;
   visualMode: string;
+  agentMode: string;
   isModelMenuOpen: boolean;
   isVisualMenuOpen: boolean;
+  isAgentMenuOpen: boolean;
   modelOptions: any[];
   visualModes: any[];
+  agentModes: any[];
   onInputChange: (value: string) => void;
   onSubmit: (e?: React.FormEvent) => void;
   onToggleListening: () => void;
@@ -24,19 +27,35 @@ interface InputAreaProps {
   onRemoveFile: (index: number) => void;
   onSetSelectedModel: (id: string) => void;
   onSetVisualMode: (id: string) => void;
+  onSetAgentMode: (id: string) => void;
   onSetIsModelMenuOpen: (open: boolean) => void;
   onSetIsVisualMenuOpen: (open: boolean) => void;
+  onSetIsAgentMenuOpen: (open: boolean) => void;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
 }
 
 export const InputArea = React.memo(({
   input, isLoading, isListening, selectedFiles, error,
-  selectedModel, visualMode, isModelMenuOpen, isVisualMenuOpen,
-  modelOptions, visualModes, onInputChange, onSubmit, onToggleListening,
-  onFileSelect, onRemoveFile, onSetSelectedModel, onSetVisualMode,
-  onSetIsModelMenuOpen, onSetIsVisualMenuOpen, textareaRef, fileInputRef
+  selectedModel, visualMode, agentMode, isModelMenuOpen, isVisualMenuOpen, isAgentMenuOpen,
+  modelOptions, visualModes, agentModes, onInputChange, onSubmit, onToggleListening,
+  onFileSelect, onRemoveFile, onSetSelectedModel, onSetVisualMode, onSetAgentMode,
+  onSetIsModelMenuOpen, onSetIsVisualMenuOpen, onSetIsAgentMenuOpen, textareaRef, fileInputRef
 }: InputAreaProps) => {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        onSetIsModelMenuOpen(false);
+        onSetIsVisualMenuOpen(false);
+        onSetIsAgentMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onSetIsModelMenuOpen, onSetIsVisualMenuOpen, onSetIsAgentMenuOpen]);
+
   return (
     <div className="px-4 md:px-10 pb-4 md:pb-10 pt-4 bg-gradient-to-t from-[var(--bg-main)] shrink-0">
       <form onSubmit={onSubmit} className="max-w-6xl mx-auto space-y-4">
@@ -66,26 +85,29 @@ export const InputArea = React.memo(({
               rows={1} 
             />
             <div className="flex items-center justify-between px-4 md:px-6 pb-2 pt-2">
-              <div className="flex items-center gap-2">
+              <div ref={containerRef} className="flex items-center gap-2">
                 <input type="file" ref={fileInputRef} onChange={onFileSelect} multiple className="hidden" accept="image/*,application/pdf,text/plain" />
-                <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2.5 rounded-xl bg-[var(--bg-sidebar)]/50 hover:bg-[var(--bg-sidebar)] transition-all shadow-sm"><Plus size={20} /></button>
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2.5 rounded-xl bg-[var(--bg-sidebar)]/50 hover:bg-[var(--bg-sidebar)] transition-all shadow-sm shrink-0"><Plus size={20} /></button>
                 
                 <button 
                   type="button" 
                   onClick={onToggleListening} 
-                  className={`relative p-2.5 rounded-xl transition-all shadow-sm ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-[var(--bg-sidebar)]/50 hover:bg-[var(--bg-sidebar)]'}`}
+                  className={`relative p-2.5 rounded-xl transition-all shadow-sm shrink-0 ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-[var(--bg-sidebar)]/50 hover:bg-[var(--bg-sidebar)]'}`}
                 >
                   <Mic size={20} />
                   {isListening && <span className="absolute -top-1 -right-1 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span>}
                 </button>
 
-                <div className="md:relative">
-                  <button type="button" onClick={() => onSetIsVisualMenuOpen(!isVisualMenuOpen)} className="px-4 py-2 hover:bg-[var(--bg-sidebar)] rounded-xl text-xs font-bold transition-all text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--border)] bg-[var(--bg-sidebar)]/30 flex items-center gap-2">
+                <div className="h-6 w-px bg-[var(--border)] mx-1 shrink-0" />
+
+                {/* Visual Mode Selector */}
+                <div className="relative shrink-0">
+                  <button type="button" onClick={() => { onSetIsVisualMenuOpen(!isVisualMenuOpen); onSetIsAgentMenuOpen(false); onSetIsModelMenuOpen(false); }} className="px-3 md:px-4 py-2 hover:bg-[var(--bg-sidebar)] rounded-xl text-[10px] md:text-xs font-bold transition-all text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--border)] bg-[var(--bg-sidebar)]/30 flex items-center gap-2 whitespace-nowrap">
                     {visualModes.find(m => m.id === visualMode)?.icon}
-                    {visualModes.find(m => m.id === visualMode)?.name}
+                    <span className="hidden sm:inline">{visualModes.find(m => m.id === visualMode)?.name}</span>
                   </button>
                   {isVisualMenuOpen && (
-                    <div className="absolute bottom-full left-0 mb-4 w-60 bg-[var(--bg-card)] border border-[var(--border)] rounded-3xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2 backdrop-blur-3xl p-2">
+                    <div className="absolute bottom-full left-0 mb-4 w-60 bg-[var(--bg-card)] border border-[var(--border)] rounded-3xl shadow-2xl z-[100] overflow-hidden animate-in fade-in slide-in-from-bottom-2 backdrop-blur-3xl p-2">
                       {visualModes.map(opt => (
                         <button key={opt.id} type="button" onClick={() => { onSetVisualMode(opt.id); onSetIsVisualMenuOpen(false); }} className={`w-full px-5 py-3 text-left rounded-2xl transition-all hover:bg-[var(--bg-sidebar)] flex flex-col gap-0.5 ${visualMode === opt.id ? 'bg-[var(--bg-sidebar)] border border-[var(--border)]' : ''}`}>
                           <span className={`text-[12px] font-bold flex items-center gap-2 ${visualMode === opt.id ? 'text-[var(--accent)]' : 'text-[var(--text-main)]'}`}>
@@ -98,10 +120,35 @@ export const InputArea = React.memo(({
                   )}
                 </div>
 
-                <div className="md:relative">
-                  <button type="button" onClick={() => onSetIsModelMenuOpen(!isModelMenuOpen)} className="px-4 py-2 hover:bg-[var(--bg-sidebar)] rounded-xl text-xs font-bold transition-all text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--border)] bg-[var(--bg-sidebar)]/30">{modelOptions.find(m => m.id === selectedModel)?.name} <ChevronDown size={14} className="inline ml-1"/></button>
+                {/* Agent Selector */}
+                <div className="relative shrink-0">
+                  <button type="button" onClick={() => { onSetIsAgentMenuOpen(!isAgentMenuOpen); onSetIsVisualMenuOpen(false); onSetIsModelMenuOpen(false); }} className="px-3 md:px-4 py-2 hover:bg-[var(--bg-sidebar)] rounded-xl text-[10px] md:text-xs font-bold transition-all text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--border)] bg-[var(--bg-sidebar)]/30 flex items-center gap-2 whitespace-nowrap">
+                    {agentModes.find(m => m.id === agentMode)?.icon}
+                    <span className="hidden sm:inline">{agentModes.find(m => m.id === agentMode)?.name}</span>
+                  </button>
+                  {isAgentMenuOpen && (
+                    <div className="absolute bottom-full left-0 mb-4 w-60 bg-[var(--bg-card)] border border-[var(--border)] rounded-3xl shadow-2xl z-[100] overflow-hidden animate-in fade-in slide-in-from-bottom-2 backdrop-blur-3xl p-2">
+                      {agentModes.map(opt => (
+                        <button key={opt.id} type="button" onClick={() => { onSetAgentMode(opt.id); onSetIsAgentMenuOpen(false); }} className={`w-full px-5 py-3 text-left rounded-2xl transition-all hover:bg-[var(--bg-sidebar)] flex flex-col gap-0.5 ${agentMode === opt.id ? 'bg-[var(--bg-sidebar)] border border-[var(--border)]' : ''}`}>
+                          <span className={`text-[12px] font-bold flex items-center gap-2 ${agentMode === opt.id ? 'text-[var(--accent)]' : 'text-[var(--text-main)]'}`}>
+                            {opt.icon} {opt.name}
+                          </span>
+                          <span className="text-[9px] text-[var(--text-muted)] font-medium leading-none ml-5">{opt.desc}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Model Selector */}
+                <div className="relative shrink-0">
+                  <button type="button" onClick={() => { onSetIsModelMenuOpen(!isModelMenuOpen); onSetIsVisualMenuOpen(false); onSetIsAgentMenuOpen(false); }} className="px-3 md:px-4 py-2 hover:bg-[var(--bg-sidebar)] rounded-xl text-[10px] md:text-xs font-bold transition-all text-[var(--text-muted)] hover:text-[var(--text-main)] border border(--border)] bg-[var(--bg-sidebar)]/30 whitespace-nowrap">
+                    <span className="hidden sm:inline">{modelOptions.find(m => m.id === selectedModel)?.name}</span>
+                    <span className="sm:hidden">{modelOptions.find(m => m.id === selectedModel)?.name.split(' ')[0]}</span>
+                    <ChevronDown size={14} className="inline ml-1"/>
+                  </button>
                   {isModelMenuOpen && (
-                    <div className="absolute bottom-full left-0 mb-4 w-64 bg-[var(--bg-card)] border border-[var(--border)] rounded-3xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2 backdrop-blur-3xl p-2">
+                    <div className="absolute bottom-full right-0 mb-4 w-64 bg-[var(--bg-card)] border border-[var(--border)] rounded-3xl shadow-2xl z-[100] overflow-hidden animate-in fade-in slide-in-from-bottom-2 backdrop-blur-3xl p-2">
                       {modelOptions.map(opt => (
                         <button key={opt.id} type="button" onClick={() => { onSetSelectedModel(opt.id); onSetIsModelMenuOpen(false); }} className={`w-full px-5 py-4 text-left rounded-2xl transition-all hover:bg-[var(--bg-sidebar)] flex flex-col gap-1 ${selectedModel === opt.id ? 'bg-[var(--bg-sidebar)] border border-[var(--border)]' : ''}`}>
                           <span className={`text-[13px] font-bold ${selectedModel === opt.id ? 'text-[var(--accent)]' : 'text-[var(--text-main)]'}`}>{opt.name}</span>
@@ -112,7 +159,7 @@ export const InputArea = React.memo(({
                   )}
                 </div>
               </div>
-              <button type="submit" disabled={isLoading || (!input.trim() && selectedFiles.length === 0)} className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${input.trim() || selectedFiles.length > 0 ? 'bg-[var(--accent)] text-white shadow-lg shadow-blue-500/20' : 'bg-[var(--bg-sidebar)]/50 opacity-40'}`}><Send size={20} /></button>
+              <button type="submit" disabled={isLoading || (!input.trim() && selectedFiles.length === 0)} className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all shrink-0 ${input.trim() || selectedFiles.length > 0 ? 'bg-[var(--accent)] text-white shadow-lg shadow-blue-500/20' : 'bg-[var(--bg-sidebar)]/50 opacity-40'}`}><Send size={20} /></button>
             </div>
           </div>
         </div>

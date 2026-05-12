@@ -8,6 +8,7 @@ import { PhysicsBlock } from '../visuals/PhysicsBlock';
 import { ThreeBlock } from '../visuals/ThreeBlock';
 import { CanvasBlock } from '../visuals/CanvasBlock';
 import { MermaidBlock } from '../visuals/MermaidBlock';
+import { WeatherBlock } from '../visuals/WeatherBlock';
 import { CodeBlock } from './CodeBlock';
 
 const REACTFLOW_LANGUAGES = new Set(['reactflow', 'flow', 'diagram', 'json', 'javascript', 'js']);
@@ -59,6 +60,13 @@ export const MarkdownRenderer = React.memo(({ content, enableVisuals = true }: M
     ul: ({ children }: any) => <ul className="list-disc ml-6 mb-5 space-y-2">{children}</ul>,
     ol: ({ children }: any) => <ol className="list-decimal ml-6 mb-5 space-y-2">{children}</ol>,
   }), [enableVisuals]);
+
+  if (enableVisuals && trimmed.startsWith('{') && trimmed.endsWith('}') && trimmed.includes('"agent": "weather"')) {
+    try {
+      const data = JSON.parse(trimmed);
+      return <WeatherBlock data={data} />;
+    } catch (e) {}
+  }
 
   if (enableVisuals && trimmed.startsWith('<!DOCTYPE html>')) {
     return <CanvasBlock code={trimmed} />;

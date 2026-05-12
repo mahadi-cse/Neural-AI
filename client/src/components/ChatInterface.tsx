@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import { 
-  Sparkles, Menu, Send, User, Bot, Sun, Moon, X, AlertCircle, Activity, Box 
+  Sparkles, Menu, Send, User, Bot, Sun, Moon, X, AlertCircle, Activity, Box, CloudSun
 } from 'lucide-react';
 
 // Components
@@ -34,6 +34,11 @@ const VISUAL_MODES = [
   { id: '3d', name: '3D Studio', icon: <Box size={14} />, desc: 'Force Three.js 3D Scene' },
 ];
 
+const AGENT_MODES = [
+  { id: 'none', name: 'No Agent', icon: <User size={14} />, desc: 'Standard Assistant' },
+  { id: 'weather', name: 'Weather AI', icon: <CloudSun size={14} />, desc: 'Real-time Weather Agent' },
+];
+
 const MAX_FILE_SIZE = 4 * 1024 * 1024;
 
 export default function ChatInterface() {
@@ -46,8 +51,10 @@ export default function ChatInterface() {
   const [streamingMessage, setStreamingMessage] = useState('');
   const [selectedModel, setSelectedModel] = useState(MOD_OPTIONS[0].id);
   const [visualMode, setVisualMode] = useState('auto');
+  const [agentMode, setAgentMode] = useState('none');
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [isVisualMenuOpen, setIsVisualMenuOpen] = useState(false);
+  const [isAgentMenuOpen, setIsAgentMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<FilePreview[]>([]);
@@ -119,6 +126,40 @@ export default function ChatInterface() {
       - LIBRARIES: Three.js or p5.js via CDN.
       - THEME: Use a dark, premium aesthetic with glassmorphism controls.
       - PASCAL'S LAW: If requested, show 3D cylinders with moving pistons and fluid pressure. Cylinders MUST be static.]`;
+
+    if (agentMode === 'weather') processedInput += `
+[SYSTEM: ACT AS WEATHER AGENT. Output STRICT JSON only. No markdown. No explanations. No extra text. No code block formatting.
+STRICT SCHEMA:
+{
+  "agent": "weather",
+  "intent": "current_weather|weather_forecast|rain_check|temperature_check|weather_visualization",
+  "location": "",
+  "time": "",
+  "summary": "",
+  "weather": {
+    "temperature": 0,
+    "feelsLike": 0,
+    "condition": "",
+    "humidity": 0,
+    "windSpeed": 0,
+    "rainChance": 0,
+    "hourly": [
+      {"time": "08:00", "temp": 32, "condition": "Sunny"},
+      {"time": "10:00", "temp": 34, "condition": "Sunny"}
+    ]
+  },
+  "visualization": {
+    "scene": "sunny|cloudy|rainy|storm|snowy|foggy|night_clear",
+    "animation": "clear_sky|cloud_move|rain_fall|lightning_flash|snow_fall|fog_drift",
+    "lighting": "soft|dark",
+    "particles": 0,
+    "camera": {
+      "position": "front|top|angled",
+      "rotation": "slow"
+    }
+  }
+}
+RULES: rainy -> dark + rain_fall, cloudy -> soft + cloud_move, storm -> lightning_flash, snowy -> snow_fall, foggy -> fog_drift, sunny -> clear_sky.]`;
 
     const userMsg: Message = { role: 'user', content: input || "Analyzed attached files." };
     const promptMsg: Message = { ...userMsg, content: processedInput };
@@ -237,6 +278,19 @@ export default function ChatInterface() {
                 </div>
               ))
             )}
+            {isLoading && !streamingMessage && (
+              <div className="flex gap-3 md:gap-6 animate-in fade-in duration-300">
+                <div className="w-8 h-8 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] flex items-center justify-center text-[var(--accent)]"><Bot size={18} /></div>
+                <div className="px-5 py-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] shadow-soft flex items-center gap-3">
+                  <div className="flex gap-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-bounce" style={{ animationDelay: '0s' }}></div>
+                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">Neural AI is thinking...</span>
+                </div>
+              </div>
+            )}
             {streamingMessage && (
               <div className="flex gap-3 md:gap-6 animate-in fade-in duration-300">
                 <div className="w-8 h-8 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] flex items-center justify-center text-[var(--accent)]"><Bot size={18} /></div>
@@ -252,13 +306,14 @@ export default function ChatInterface() {
 
         <InputArea 
           input={input} isLoading={isLoading} isListening={isListening} selectedFiles={selectedFiles} error={error}
-          selectedModel={selectedModel} visualMode={visualMode} isModelMenuOpen={isModelMenuOpen} isVisualMenuOpen={isVisualMenuOpen}
-          modelOptions={MOD_OPTIONS} visualModes={VISUAL_MODES}
+          selectedModel={selectedModel} visualMode={visualMode} agentMode={agentMode}
+          isModelMenuOpen={isModelMenuOpen} isVisualMenuOpen={isVisualMenuOpen} isAgentMenuOpen={isAgentMenuOpen}
+          modelOptions={MOD_OPTIONS} visualModes={VISUAL_MODES} agentModes={AGENT_MODES}
           onInputChange={handleInputChange} onSubmit={handleSubmit} 
           onToggleListening={() => { if (isListening) recognitionRef.current.stop(); else { setIsListening(true); recognitionRef.current.start(); } }}
           onFileSelect={handleFileSelect} onRemoveFile={(i) => setSelectedFiles(p => p.filter((_, idx) => idx !== i))}
-          onSetSelectedModel={setSelectedModel} onSetVisualMode={setVisualMode}
-          onSetIsModelMenuOpen={setIsModelMenuOpen} onSetIsVisualMenuOpen={setIsVisualMenuOpen}
+          onSetSelectedModel={setSelectedModel} onSetVisualMode={setVisualMode} onSetAgentMode={setAgentMode}
+          onSetIsModelMenuOpen={setIsModelMenuOpen} onSetIsVisualMenuOpen={setIsVisualMenuOpen} onSetIsAgentMenuOpen={setIsAgentMenuOpen}
           textareaRef={textareaRef} fileInputRef={fileInputRef}
         />
       </div>
