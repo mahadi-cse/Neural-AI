@@ -111,7 +111,7 @@ export default function ChatInterface() {
     if ((!input.trim() && selectedFiles.length === 0) || isLoading) return;
 
     let processedInput = input;
-    if (visualMode === 'diagram') processedInput += "\n[SYSTEM: Output a React Flow diagram JSON in a ```reactflow``` block. Schema: {\"nodes\":[{\"id\":\"1\",\"data\":{\"label\":\"...\"}}],\"edges\":[{\"id\":\"e1-2\",\"source\":\"1\",\"target\":\"2\"}]}]";
+    if (visualMode === 'diagram') processedInput += "\n[SYSTEM: Output a React Flow diagram JSON in a ```reactflow``` block. Schema: {\"nodes\":[{\"id\":\"1\",\"data\":{\"label\":\"...\", \"color\":\"#...\"}}],\"edges\":[{\"id\":\"e1-2\",\"source\":\"1\",\"target\":\"2\"}]}. Use a professional color palette (blue, emerald, amber, violet).]";
     if (visualMode === 'chart') processedInput += "\n[SYSTEM: Output a Recharts graph JSON in a ```recharts``` block. Schema: {\"type\":\"LineChart|BarChart|AreaChart\",\"data\":[{\"name\":\"A\",\"v\":10}],\"xKey\":\"name\",\"series\":[{\"key\":\"v\",\"color\":\"#...\"}]}]";
     if (visualMode === 'physics' || visualMode === '3d') processedInput += `\n[SYSTEM: Output a high-performance Neural Canvas simulation in a \`\`\`canvas\`\`\` block. 
       - FORMAT: Complete self-contained HTML (<!DOCTYPE html>).

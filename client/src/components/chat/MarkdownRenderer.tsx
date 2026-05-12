@@ -7,6 +7,7 @@ import { ChartBlock } from '../visuals/ChartBlock';
 import { PhysicsBlock } from '../visuals/PhysicsBlock';
 import { ThreeBlock } from '../visuals/ThreeBlock';
 import { CanvasBlock } from '../visuals/CanvasBlock';
+import { MermaidBlock } from '../visuals/MermaidBlock';
 import { CodeBlock } from './CodeBlock';
 
 const REACTFLOW_LANGUAGES = new Set(['reactflow', 'flow', 'diagram', 'json', 'javascript', 'js']);
@@ -30,6 +31,9 @@ export const MarkdownRenderer = React.memo(({ content, enableVisuals = true }: M
       
       const isCanvas = enableVisuals && !inline && (language === 'canvas' || language === 'lab' || language === 'html' || codeValue.includes('<!DOCTYPE html>'));
       if (isCanvas) return <CanvasBlock code={codeValue} />;
+
+      const isMermaid = enableVisuals && !inline && (language === 'mermaid' || normalizedLanguage === 'mermaid' || codeValue.startsWith('graph ') || codeValue.startsWith('sequenceDiagram') || codeValue.startsWith('classDiagram'));
+      if (isMermaid) return <MermaidBlock code={codeValue} />;
 
       const isFlow = enableVisuals && !inline && (REACTFLOW_LANGUAGES.has(language) || REACTFLOW_LANGUAGES.has(normalizedLanguage) || isReactFlowLike(codeValue));
       if (isFlow) return <ReactFlowBlock code={codeValue} />;
