@@ -13,7 +13,12 @@ import { MarkdownRenderer } from './chat/MarkdownRenderer';
 
 // Types & Config
 interface Message { role: 'user' | 'assistant'; content: string; }
-interface Chat { id: string; title: string; messages: Message[]; }
+interface Chat { 
+  id: string; 
+  title: string; 
+  messages: Message[]; 
+  usage?: { prompt: number; completion: number; total: number; }; 
+}
 interface FilePreview { file: File; previewUrl: string; type: string; }
 
 const MOD_OPTIONS = [
@@ -106,10 +111,14 @@ export default function ChatInterface() {
     if ((!input.trim() && selectedFiles.length === 0) || isLoading) return;
 
     let processedInput = input;
-    if (visualMode === 'diagram') processedInput += "\n[SYSTEM: Output a React Flow diagram JSON in a ```reactflow``` block]";
-    if (visualMode === 'chart') processedInput += "\n[SYSTEM: Output a Recharts graph JSON in a ```recharts``` block]";
-    if (visualMode === 'physics') processedInput += "\n[SYSTEM: Output a comprehensive 'physics_lab' JSON in a ```physics``` block. Include expert explanation and interactive sliders]";
-    if (visualMode === '3d') processedInput += "\n[SYSTEM: Output a '3d_studio' JSON in a ```three``` block. Include explanation, controls, and sketch. Sketch must define geometry/lighting and return { update: (c) => { ... } }]";
+    if (visualMode === 'diagram') processedInput += "\n[SYSTEM: Output a React Flow diagram JSON in a ```reactflow``` block. Schema: {\"nodes\":[{\"id\":\"1\",\"data\":{\"label\":\"...\"}}],\"edges\":[{\"id\":\"e1-2\",\"source\":\"1\",\"target\":\"2\"}]}]";
+    if (visualMode === 'chart') processedInput += "\n[SYSTEM: Output a Recharts graph JSON in a ```recharts``` block. Schema: {\"type\":\"LineChart|BarChart|AreaChart\",\"data\":[{\"name\":\"A\",\"v\":10}],\"xKey\":\"name\",\"series\":[{\"key\":\"v\",\"color\":\"#...\"}]}]";
+    if (visualMode === 'physics' || visualMode === '3d') processedInput += `\n[SYSTEM: Output a high-performance Neural Canvas simulation in a \`\`\`canvas\`\`\` block. 
+      - FORMAT: Complete self-contained HTML (<!DOCTYPE html>).
+      - STYLING: Tailwind CSS via CDN.
+      - LIBRARIES: Three.js or p5.js via CDN.
+      - THEME: Use a dark, premium aesthetic with glassmorphism controls.
+      - PASCAL'S LAW: If requested, show 3D cylinders with moving pistons and fluid pressure. Cylinders MUST be static.]`;
 
     const userMsg: Message = { role: 'user', content: input || "Analyzed attached files." };
     const promptMsg: Message = { ...userMsg, content: processedInput };
@@ -139,6 +148,28 @@ export default function ChatInterface() {
         const { done, value } = await reader.read();
         if (done) break;
         assistantRes += decoder.decode(value, { stream: true });
+        
+        // Handle metadata delimiter if present
+        if (assistantRes.includes('\n[METADATA]:')) {
+          const parts = assistantRes.split('\n[METADATA]:');
+          const realContent = parts[0];
+          const metadataStr = parts[1];
+          
+          try {
+            const metadata = JSON.parse(metadataStr);
+            setChats(prev => prev.map(c => c.id === activeChatId ? { 
+              ...c, 
+              usage: {
+                prompt: (c.usage?.prompt || 0) + (metadata.promptTokenCount || 0),
+                completion: (c.usage?.completion || 0) + (metadata.candidatesTokenCount || 0),
+                total: (c.usage?.total || 0) + (metadata.totalTokenCount || 0)
+              }
+            } : c));
+          } catch (e) {}
+          
+          assistantRes = realContent;
+        }
+        
         setStreamingMessage(assistantRes);
       }
 
@@ -171,7 +202,20 @@ export default function ChatInterface() {
         <header className="h-16 md:h-20 flex items-center justify-between px-4 md:px-10 border-b border-[var(--border)] bg-[var(--bg-header)] backdrop-blur-xl z-10 shrink-0">
           <div className="flex items-center gap-4">
             <button onClick={() => isSidebarCollapsed ? setIsSidebarCollapsed(false) : setIsMobileMenuOpen(true)} className={`p-2.5 hover:bg-[var(--bg-card)] rounded-xl text-[var(--text-muted)] ${!isSidebarCollapsed ? 'md:hidden' : ''}`}><Menu size={20} /></button>
-            <div className="flex flex-col"><div className="text-sm font-bold">Neural AI</div><div className="text-[10px] uppercase opacity-50 font-bold hidden md:block">Conversation</div></div>
+            <div className="flex flex-col">
+              <div className="text-sm font-bold">Neural AI</div>
+              <div className="flex items-center gap-2 text-[10px] uppercase opacity-60 font-bold">
+                <span className="hidden md:inline">Conversation</span>
+                {activeChat.usage && (
+                  <div className="flex items-center gap-2 px-2 py-0.5 bg-[var(--accent)]/10 text-[var(--accent)] rounded-full border border-[var(--accent)]/10">
+                    <Activity size={10} />
+                    <span>{activeChat.usage.total.toLocaleString()} Tokens</span>
+                    <span className="opacity-40">/</span>
+                    <span className="opacity-70">{~~(100 - (activeChat.usage.total / 1000000 * 100))}% Left</span>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
           <button onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')} className="p-2.5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)]"><Sun size={18} /></button>
         </header>

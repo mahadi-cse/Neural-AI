@@ -49,6 +49,17 @@ app.post('/api/chat', upload.array('files'), async (req, res) => {
       const chunkText = chunk.text();
       res.write(chunkText);
     }
+
+    // After stream ends, get usage metadata
+    try {
+      const response = await result.response;
+      if (response.usageMetadata) {
+        res.write(`\n[METADATA]:${JSON.stringify(response.usageMetadata)}`);
+      }
+    } catch (e) {
+      console.error('Error getting usage metadata:', e);
+    }
+    
     res.end();
 
   } catch (error) {

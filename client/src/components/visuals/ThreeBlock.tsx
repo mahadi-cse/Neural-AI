@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Box, Settings, Info, Activity, Maximize2, RotateCcw } from 'lucide-react';
 import { MarkdownRenderer } from '../chat/MarkdownRenderer';
+import { useTheme } from 'next-themes';
 
 interface Control {
   id: string;
@@ -21,6 +22,7 @@ export const ThreeBlock = ({ code }: { code: string }) => {
   const [resetKey, setResetKey] = useState(0);
   const rendererRef = useRef<any>(null);
   const requestRef = useRef<number | null>(null);
+  const { resolvedTheme } = useTheme();
 
   const handleReset = () => {
     setResetKey(prev => prev + 1);
@@ -52,13 +54,16 @@ export const ThreeBlock = ({ code }: { code: string }) => {
   }, [code]);
 
   useEffect(() => {
+    let isMounted = true;
     if (!containerRef.current || !config?.sketch) return;
 
     const initThree = async () => {
       const THREE = await import('three');
       
-      const width = containerRef.current!.clientWidth;
-      const height = containerRef.current!.clientHeight;
+      if (!containerRef.current || !isMounted) return;
+
+      const width = containerRef.current.clientWidth;
+      const height = containerRef.current.clientHeight;
 
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
@@ -67,9 +72,14 @@ export const ThreeBlock = ({ code }: { code: string }) => {
       const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setSize(width, height);
       renderer.setPixelRatio(window.devicePixelRatio);
-      containerRef.current!.appendChild(renderer.domElement);
       
-      rendererRef.current = renderer;
+      if (isMounted && containerRef.current) {
+        containerRef.current.appendChild(renderer.domElement);
+        rendererRef.current = renderer;
+      } else {
+        renderer.dispose();
+        return;
+      }
 
       try {
         const sanitizedCode = config.sketch
@@ -78,11 +88,10 @@ export const ThreeBlock = ({ code }: { code: string }) => {
           .replace(/var\s+(scene|camera|THREE)\s*=/g, '// $&');
 
         const sketchLogic = new Function('THREE', 'scene', 'camera', 'controls', sanitizedCode);
-        // We pass the current controls initially
         const { update } = sketchLogic(THREE, scene, camera, controlsRef.current) || {};
         
         const animate = () => {
-          // In each frame, use the LATEST controls from the Ref
+          if (!isMounted) return;
           if (update) update(controlsRef.current);
           renderer.render(scene, camera);
           requestRef.current = requestAnimationFrame(animate);
@@ -96,10 +105,15 @@ export const ThreeBlock = ({ code }: { code: string }) => {
     initThree();
 
     return () => {
+      isMounted = false;
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
       if (rendererRef.current) {
-        rendererRef.current.dispose();
-        containerRef.current?.removeChild(rendererRef.current.domElement);
+        const renderer = rendererRef.current;
+        renderer.dispose();
+        if (containerRef.current?.contains(renderer.domElement)) {
+          containerRef.current.removeChild(renderer.domElement);
+        }
+        rendererRef.current = null;
       }
     };
   }, [config?.sketch, resetKey]);
@@ -113,39 +127,39 @@ export const ThreeBlock = ({ code }: { code: string }) => {
   if (!config) return null;
 
   return (
-    <div key={resetKey} className="my-10 rounded-[2.5rem] border border-white/10 bg-black overflow-hidden shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-1000">
-      <div className="flex items-center justify-between px-8 py-5 border-b border-white/5 bg-[#0a0a0a]/80 backdrop-blur-2xl">
+    <div key={resetKey} className="my-10 rounded-[2.5rem] border border-[var(--border)] bg-[var(--bg-card)] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-1000">
+      <div className="flex items-center justify-between px-8 py-5 border-b border-[var(--border)] bg-[var(--bg-card)]/80 backdrop-blur-2xl">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20 text-blue-400">
             <Box size={20} />
           </div>
           <div>
             <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500/60 block leading-none mb-1.5">Neural 3D Studio</span>
-            <span className="text-sm font-bold text-white tracking-tight">Interactive WebGL Scene</span>
+            <span className="text-sm font-bold text-[var(--text-main)] tracking-tight">Interactive WebGL Scene</span>
           </div>
         </div>
-        <button type="button" onClick={handleReset} className="p-3 hover:bg-white/5 rounded-xl transition-all text-white border border-white/5">
+        <button type="button" onClick={handleReset} className="p-3 hover:bg-[var(--bg-sidebar)] rounded-xl transition-all text-[var(--text-main)] border border-[var(--border)]">
           <RotateCcw size={18} />
         </button>
       </div>
 
       <div className="flex flex-col lg:flex-row">
-        <div className="flex-1 bg-gradient-to-b from-[#080808] to-[#111] relative min-h-[400px]">
+        <div className="flex-1 bg-gradient-to-b from-[var(--bg-sidebar)] to-[var(--bg-card)] relative min-h-[400px]">
           <div ref={containerRef} className="w-full h-full absolute inset-0" />
           
           {config.controls && (
-            <div className="absolute bottom-6 left-6 right-6 p-6 bg-black/40 backdrop-blur-xl rounded-3xl border border-white/5 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="absolute bottom-6 left-6 right-6 p-6 bg-[var(--bg-card)]/40 backdrop-blur-xl rounded-3xl border border-[var(--border)] grid grid-cols-1 md:grid-cols-2 gap-6">
               {config.controls.map((c: Control) => (
                 <div key={c.id} className="space-y-2">
                   <div className="flex justify-between items-center px-1">
-                    <label className="text-[9px] font-black uppercase tracking-widest text-zinc-500">{c.label}</label>
-                    <span className="text-[10px] font-mono font-bold text-blue-400">{controls[c.id]?.toFixed(2) || '0.00'}</span>
+                    <label className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">{c.label}</label>
+                    <span className="text-[10px] font-mono font-bold text-blue-400">{Number(controls[c.id] || c.value).toFixed(2)}</span>
                   </div>
                   <input 
                     type="range" min={c.min} max={c.max} step={c.step || 0.01}
                     value={controls[c.id] || c.value} 
                     onChange={(e) => updateControl(c.id, parseFloat(e.target.value))}
-                    className="w-full h-1 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-blue-500"
+                    className="w-full h-1 bg-[var(--border)] rounded-full appearance-none cursor-pointer accent-blue-500"
                   />
                 </div>
               ))}
@@ -153,12 +167,12 @@ export const ThreeBlock = ({ code }: { code: string }) => {
           )}
         </div>
 
-        <div className="w-full lg:w-[400px] bg-[#0a0a0a] p-8 overflow-y-auto max-h-[600px] scrollbar-hide border-l border-white/5">
+        <div className="w-full lg:w-[400px] bg-[var(--bg-card)] p-8 overflow-y-auto max-h-[600px] scrollbar-hide border-l border-[var(--border)]">
           <div className="flex items-center gap-2 mb-6">
             <Info size={16} className="text-blue-400" />
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Scene Intelligence</h3>
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">Scene Intelligence</h3>
           </div>
-          <div className="prose prose-invert prose-sm max-w-none">
+          <div className={`prose ${resolvedTheme === 'dark' ? 'prose-invert' : ''} prose-sm max-w-none`}>
             <MarkdownRenderer content={config.explanation} enableVisuals={false} />
           </div>
           
@@ -170,8 +184,8 @@ export const ThreeBlock = ({ code }: { code: string }) => {
             <div className="space-y-3">
               {Object.entries(controls).map(([key, val]) => (
                 <div key={key} className="flex justify-between items-center">
-                  <span className="text-[10px] text-zinc-500 font-bold uppercase">{key}</span>
-                  <span className="text-[11px] font-mono text-white font-bold">{(val || 0).toFixed(3)}</span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase">{key}</span>
+                  <span className="text-[11px] font-mono text-[var(--text-main)] font-bold">{Number(val || 0).toFixed(3)}</span>
                 </div>
               ))}
             </div>

@@ -6,6 +6,7 @@ import { ReactFlowBlock } from '../visuals/ReactFlowBlock';
 import { ChartBlock } from '../visuals/ChartBlock';
 import { PhysicsBlock } from '../visuals/PhysicsBlock';
 import { ThreeBlock } from '../visuals/ThreeBlock';
+import { CanvasBlock } from '../visuals/CanvasBlock';
 import { CodeBlock } from './CodeBlock';
 
 const REACTFLOW_LANGUAGES = new Set(['reactflow', 'flow', 'diagram', 'json', 'javascript', 'js']);
@@ -27,6 +28,9 @@ export const MarkdownRenderer = React.memo(({ content, enableVisuals = true }: M
       const normalizedLanguage = language.replace(/[^a-z0-9]/g, '');
       const codeValue = String(children).replace(/\n$/, '');
       
+      const isCanvas = enableVisuals && !inline && (language === 'canvas' || language === 'lab' || language === 'html' || codeValue.includes('<!DOCTYPE html>'));
+      if (isCanvas) return <CanvasBlock code={codeValue} />;
+
       const isFlow = enableVisuals && !inline && (REACTFLOW_LANGUAGES.has(language) || REACTFLOW_LANGUAGES.has(normalizedLanguage) || isReactFlowLike(codeValue));
       if (isFlow) return <ReactFlowBlock code={codeValue} />;
 
@@ -51,6 +55,10 @@ export const MarkdownRenderer = React.memo(({ content, enableVisuals = true }: M
     ul: ({ children }: any) => <ul className="list-disc ml-6 mb-5 space-y-2">{children}</ul>,
     ol: ({ children }: any) => <ol className="list-decimal ml-6 mb-5 space-y-2">{children}</ol>,
   }), [enableVisuals]);
+
+  if (enableVisuals && trimmed.startsWith('<!DOCTYPE html>')) {
+    return <CanvasBlock code={trimmed} />;
+  }
 
   if (enableVisuals && trimmed.startsWith('{') && trimmed.endsWith('}') && isReactFlowLike(trimmed)) {
     return <ReactFlowBlock code={trimmed} />;

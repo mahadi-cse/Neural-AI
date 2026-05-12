@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Play, Pause, RotateCcw, Settings, Info, ChevronRight, Activity } from 'lucide-react';
 import { MarkdownRenderer } from '../chat/MarkdownRenderer';
+import { useTheme } from 'next-themes';
 
 interface Control {
   id: string;
@@ -19,8 +20,8 @@ export const PhysicsBlock = ({ code }: { code: string }) => {
   const [config, setConfig] = useState<any>(null);
   const [controls, setControls] = useState<Record<string, number>>({});
   const p5Instance = useRef<any>(null);
-
   const [resetKey, setResetKey] = useState(0);
+  const { resolvedTheme } = useTheme();
 
   const handleReset = () => {
     setResetKey(prev => prev + 1);
@@ -51,11 +52,14 @@ export const PhysicsBlock = ({ code }: { code: string }) => {
   }, [code]);
 
   useEffect(() => {
+    let isMounted = true;
     if (!containerRef.current || !config?.sketch) return;
 
     const initP5 = async () => {
       const p5Module = await import('p5');
       const p5 = p5Module.default;
+
+      if (!isMounted || !containerRef.current) return;
 
       const sketch = (p: any) => {
         p.controls = controls;
@@ -68,12 +72,18 @@ export const PhysicsBlock = ({ code }: { code: string }) => {
       };
 
       if (p5Instance.current) p5Instance.current.remove();
-      p5Instance.current = new p5(sketch, containerRef.current!);
-      if (!isPlaying) p5Instance.current.noLoop();
+      p5Instance.current = new p5(sketch, containerRef.current);
+      if (!isPlaying && p5Instance.current) p5Instance.current.noLoop();
     };
 
     initP5();
-    return () => p5Instance.current?.remove();
+    return () => {
+      isMounted = false;
+      if (p5Instance.current) {
+        p5Instance.current.remove();
+        p5Instance.current = null;
+      }
+    };
   }, [config?.sketch, resetKey]);
 
   useEffect(() => {
@@ -92,22 +102,22 @@ export const PhysicsBlock = ({ code }: { code: string }) => {
   if (!config) return null;
 
   return (
-    <div key={resetKey} className="my-10 rounded-[2.5rem] border border-white/10 bg-black overflow-hidden shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-1000">
-      <div className="flex items-center justify-between px-8 py-5 border-b border-white/5 bg-zinc-900/80 backdrop-blur-2xl">
+    <div key={resetKey} className="my-10 rounded-[2.5rem] border border-[var(--border)] bg-[var(--bg-card)] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-1000">
+      <div className="flex items-center justify-between px-8 py-5 border-b border-[var(--border)] bg-[var(--bg-card)]/80 backdrop-blur-2xl">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
             <Activity size={20} className="text-emerald-400" />
           </div>
           <div>
             <span className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-500/60 block leading-none mb-1.5">Neural Physics Lab</span>
-            <span className="text-sm font-bold text-white tracking-tight">Interactive Simulation</span>
+            <span className="text-sm font-bold text-[var(--text-main)] tracking-tight">Interactive Simulation</span>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button type="button" onClick={() => setIsPlaying(!isPlaying)} className="p-3 hover:bg-white/5 rounded-xl transition-all text-white border border-white/5 bg-white/5">
+          <button type="button" onClick={() => setIsPlaying(!isPlaying)} className="p-3 hover:bg-[var(--bg-sidebar)] rounded-xl transition-all text-[var(--text-main)] border border-[var(--border)] bg-[var(--bg-card)]/50">
             {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
           </button>
-          <button type="button" onClick={handleReset} className="p-3 hover:bg-white/5 rounded-xl transition-all text-white border border-white/5">
+          <button type="button" onClick={handleReset} className="p-3 hover:bg-[var(--bg-sidebar)] rounded-xl transition-all text-[var(--text-main)] border border-[var(--border)]">
             <RotateCcw size={18} />
           </button>
         </div>
@@ -115,23 +125,23 @@ export const PhysicsBlock = ({ code }: { code: string }) => {
 
       <div className="flex flex-col lg:flex-row">
         {/* Left: Animation & Controls */}
-        <div className="flex-1 border-r border-white/5">
-          <div ref={containerRef} className="w-full bg-[#050505] aspect-video relative" />
+        <div className="flex-1 border-r border-[var(--border)]">
+          <div ref={containerRef} className="w-full bg-[var(--bg-sidebar)] aspect-video relative" />
           
           {/* Control Panel */}
           {config.controls && (
-            <div className="p-8 bg-zinc-900/30 grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-white/5">
+            <div className="p-8 bg-[var(--bg-sidebar)]/30 grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-[var(--border)]">
               {config.controls.map((c: Control) => (
                 <div key={c.id} className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">{c.label}</label>
-                    <span className="text-xs font-mono font-bold text-emerald-400">{controls[c.id] !== undefined ? controls[c.id].toFixed(2) : '0.00'}</span>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">{c.label}</label>
+                    <span className="text-xs font-mono font-bold text-emerald-400">{Number(controls[c.id] !== undefined ? controls[c.id] : c.value).toFixed(2)}</span>
                   </div>
                   <input 
                     type="range" min={c.min} max={c.max} step={c.step || 0.1}
                     value={controls[c.id]} 
                     onChange={(e) => setControls(prev => ({ ...prev, [c.id]: parseFloat(e.target.value) }))}
-                    className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                    className="w-full h-1.5 bg-[var(--border)] rounded-lg appearance-none cursor-pointer accent-emerald-500"
                   />
                 </div>
               ))}
@@ -140,12 +150,12 @@ export const PhysicsBlock = ({ code }: { code: string }) => {
         </div>
 
         {/* Right: Explanation */}
-        <div className="w-full lg:w-[400px] bg-zinc-900/50 backdrop-blur-md p-8 overflow-y-auto max-h-[600px] scrollbar-hide">
+        <div className="w-full lg:w-[400px] bg-[var(--bg-card)]/50 backdrop-blur-md p-8 overflow-y-auto max-h-[600px] scrollbar-hide">
           <div className="flex items-center gap-2 mb-6">
             <Info size={16} className="text-blue-400" />
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Expert Analysis</h3>
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">Expert Analysis</h3>
           </div>
-          <div className="prose prose-invert prose-sm max-w-none">
+          <div className={`prose ${resolvedTheme === 'dark' ? 'prose-invert' : ''} prose-sm max-w-none`}>
             <MarkdownRenderer content={config.explanation} enableVisuals={false} />
           </div>
           
@@ -157,8 +167,8 @@ export const PhysicsBlock = ({ code }: { code: string }) => {
             <div className="space-y-2">
               {Object.entries(controls).map(([key, val]) => (
                 <div key={key} className="flex justify-between items-center">
-                  <span className="text-[10px] text-zinc-500 font-bold uppercase">{key}</span>
-                  <span className="text-xs font-mono text-white font-bold">{(val || 0).toFixed(3)}</span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase">{key}</span>
+                  <span className="text-xs font-mono text-[var(--text-main)] font-bold">{Number(val || 0).toFixed(3)}</span>
                 </div>
               ))}
             </div>
